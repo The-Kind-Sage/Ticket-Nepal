@@ -4,19 +4,42 @@ import Loading from '../../components/Loading'
 import Title from '../../components/admin/Title'
 import { CheckIcon, Currency, DeleteIcon, StarIcon } from 'lucide-react'
 import { kConveter } from '../../lib/kConveter'
+import { useAppContext } from '../../context/AppContext'
+import toast from 'react-hot-toast'
 
 const AddShows = () => {
+  
+  const {axios, getToken, user, image_base_url} = useAppContext()
 
   const Currency = import.meta.env.VITE_CURRENCY
-  const [nowPlayingMovies, setNowPlayingMovies] = useState([])
-  const [selectedMovie, setSelectedMovie] = useState(null)
-  const [dateTimeSelection, setDateTimeSelection] = useState({})
-  const [dateTimeInput, setDateTimeInput] = useState("")
-  const [showPrice, setShowPrice] = useState("")
+  const [nowPlayingMovies, setNowPlayingMovies] = useState([]);
+  const [selectedMovie, setSelectedMovie] = useState(null);
+  const [dateTimeSelection, setDateTimeSelection] = useState({});
+  const [dateTimeInput, setDateTimeInput] = useState("");
+  const [showPrice, setShowPrice] = useState("");
 
-  const featchNowPlayingMovies = async () => {
-    setNowPlayingMovies(dummyShowsData)
-  };
+
+  const [addingShow, setAddingShow] = useState(false);
+
+const featchNowPlayingMovies = async () => {
+  try {
+    const { data } = await axios.get('/api/show/now-playing', {
+      headers: {
+        Authorization: `Bearer ${await getToken()}`
+      }
+    });
+    if (data.success && Array.isArray(data.movies)) {
+      setNowPlayingMovies(data.movies);
+    } else {
+      setNowPlayingMovies([]); // ensure it's always an array
+      console.error("Failed to fetch movies or empty response");
+    }
+  } catch (error) {
+    console.error("Now playing movies fetch error:", error);
+    setNowPlayingMovies([]); // ensure it's always an array
+  }
+};
+
   const handleDateTimeAdd = ()=>{
     if (!dateTimeInput) return;
     const[date, time ] = dateTimeInput.split("T");
@@ -46,12 +69,61 @@ const AddShows = () => {
         };
       });
     };
+   const handleSubmit = async () => {
+  try {
+    setAddingShow(true);
+
+    // Validation
+    if (!selectedMovie || Object.keys(dateTimeSelection).length === 0 || !showPrice) {
+      toast('Please select movie, date-time and enter show price', { icon: '⚠️' });
+      setAddingShow(false);
+      return;
+    }
+
+    // Prepare show input
+    const showInput = Object.entries(dateTimeSelection).map(([date, times]) => ({
+      date,
+      times,
+    }));
+
+    const payload = {
+      movieID: selectedMovie,
+      showInput,             // must match backend field name
+      showprice: Number(showPrice), // match backend field name
+    };
+
+    // Send API request
+    const { data } = await axios.post('/api/show/add', payload, {
+      headers: { Authorization: `Bearer ${await getToken()}` },
+    });
+
+    if (data.success) {
+      toast.success(data.message || 'Show added successfully');
+      setSelectedMovie(null);
+      setDateTimeSelection({});
+      setShowPrice('');
+    } else {
+      toast.error(data.message || 'Failed to add show');
+    }
+
+  } catch (error) {
+    console.error("Add show error:", error);
+    toast.error('An error occurred. Please try again.');
+  }
+
+  setAddingShow(false);
+};
+
 
   useEffect(() => {
-    featchNowPlayingMovies()
-  }, []); 
+    if(user){
+      featchNowPlayingMovies();
 
-  return nowPlayingMovies.length > 0 ? (
+    }
+    
+  }, [user])
+
+  return Array.isArray(nowPlayingMovies) && nowPlayingMovies.length > 0 ? (
     <>
       <Title text1="Add" text2="Shows" />
 
@@ -62,11 +134,12 @@ const AddShows = () => {
           {nowPlayingMovies.map((movie) => (
             <div
               key={movie.id}
-              className={`relative max-w-40 cursor-pointer group-hover:not-hover:opacity-40 hover:-translate-y-1 transition duration-300`} onClick={()=> setSelectedMovie(movie.id)}
+              className={`relative max-w-40 cursor-pointer group-hover:not-hover:opacity-40 hover:-translate-y-1 transition duration-300`} 
+              onClick={()=> setSelectedMovie(movie.id)}
             >
               <div className="relative rounded-lg overflow-hidden">
                 <img
-                  src={movie.poster_path}
+                  src={image_base_url + movie.poster_path}
                   alt=""
                   className="w-full object-cover brightness-90"
                 />
@@ -148,7 +221,7 @@ const AddShows = () => {
 
             </div>
           )}
-          <button className=' bg-primary text-white px-8 py-2 rounded hover:bg-primary/90 transition-all cursor-pointer'>
+          <button onClick={handleSubmit} disabled={addingShow} className=' bg-primary text-white px-8 py-2 rounded hover:bg-primary/90 transition-all cursor-pointer'>
             Add Show 
           </button>
 

@@ -1,3 +1,4 @@
+
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -5,14 +6,21 @@ import connectDB from "./configs/db.js";
 import { clerkMiddleware, requireAuth } from "@clerk/express";
 import { serve } from "inngest/express";
 import { inngest, functions } from "./inngest/index.js";
+
+// Routes
+import showRouter from "./routs/showRoutes.js";
+import bookingRouter from "./routs/bookingRoutes.js";
+import adminRouter from "./routs/adminRoutes.js";
+import userRouter from "./routs/userRoutes.js"; 
+
 import User from "./models/User.js";
 
 dotenv.config();
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
-// DB
+// Connect to database
 await connectDB();
 
 // Middleware
@@ -25,28 +33,53 @@ app.get("/", (req, res) => {
   res.send("Server is running");
 });
 
-// 🔹 TEST: get all users from MongoDB
-app.get("/api/users", async (req, res) => {
-  const users = await User.find();
-  res.json(users);
-});
+// API Routes
+app.use('/api/show', showRouter);
+app.use("/api/booking", bookingRouter);
 
-// 🔹 TEST: get logged-in user from MongoDB
-app.get("/api/users/me", requireAuth(), async (req, res) => {
-  const userId = req.auth.userId;
+app.use("/api/admin", adminRouter);
 
-  const user = await User.findById(userId);
+app.use("/api/users", userRouter);
 
-  if (!user) {
-    return res.status(404).json({ message: "User not found in DB" });
+
+
+
+// TEST: get all users from MongoDB
+
+app.get("/api/users/all", async (req, res) => {
+  try {
+    const users = await User.find();
+    res.json(users);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
   }
-
-  res.json(user);
 });
 
-// Inngest
+// TEST: get logged-in user from MongoDB
+
+app.get("/api/users/me", requireAuth(), async (req, res) => {
+  try {
+    const userId = req.auth.userId;
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found in DB" });
+    }
+
+    res.json(user);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// ---------------------------
+// Inngest routes
+// ---------------------------
 app.use("/api/inngest", serve({ client: inngest, functions }));
 
+// Start server
 app.listen(port, () => {
   console.log(`Server listening at http://localhost:${port}`);
 });
