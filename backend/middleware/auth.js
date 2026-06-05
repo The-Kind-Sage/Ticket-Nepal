@@ -2,7 +2,9 @@ import { clerkClient } from "@clerk/express";
 
 export const protectAdminRoute = async (req, res, next) => {
   try {
-    const { userId } = req.auth(); // Comes from requireAuth
+    // UPDATED: Call as a function req.auth()
+    const { userId } = req.auth(); 
+    
     if (!userId) {
       return res.status(401).json({ success: false, message: "Unauthorized" });
     }

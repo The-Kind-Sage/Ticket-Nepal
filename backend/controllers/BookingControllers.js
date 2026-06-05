@@ -1,5 +1,6 @@
 import Booking from "../models/Booking.js";
 import Show from "../models/Show.js";
+import { updateUserPreferredGenres, syncUserWithClerk } from "./userControllers.js";
 
 // Check seat availability
 export const checkSeatAvailability = async (showID, selectedSeats) => {
@@ -22,6 +23,9 @@ export const createBooking = async (req, res) => {
         const { userId } = req.auth(); // from auth middleware
         const { showID, selectedSeats } = req.body;
 
+        // SYNC USER DATA FROM CLERK TO DATABASE
+        await syncUserWithClerk(userId);
+
         // Check seat availability
         const available = await checkSeatAvailability(showID, selectedSeats);
         if (!available) {
@@ -32,13 +36,17 @@ export const createBooking = async (req, res) => {
         const showData = await Show.findById(showID);
         if (!showData) return res.json({ success: false, message: "Show not found" });
 
+        // Extract genres from the show
+        const movieGenres = showData.genres || [];
+
         // Create booking
         const booking = await Booking.create({
             user: userId,
             show: showID,
             amount: showData.showprice * selectedSeats.length,
             seats: selectedSeats,
-            isPaid: false
+            isPaid: false,
+            genres: movieGenres // Add genres to booking
         });
 
         // Mark seats as occupied
@@ -46,6 +54,9 @@ export const createBooking = async (req, res) => {
         selectedSeats.forEach(seat => (showData.occupaiedSeats[seat] = userId));
         showData.markModified("occupaiedSeats");
         await showData.save();
+
+        // Update user's preferred genres based on their bookings
+        await updateUserPreferredGenres(userId);
 
         // esewa payment gateway initialize 
 

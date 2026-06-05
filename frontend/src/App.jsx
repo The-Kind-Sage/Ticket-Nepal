@@ -19,6 +19,7 @@ import Dashbord from "./pages/admin/Dashbord";
 import AddShows from "./pages/admin/AddShows";
 import ListShows from "./pages/admin/ListShows";
 import ListBooking from "./pages/admin/ListBooking";
+import AddMovie from "./pages/admin/AddMovie";
 
 import { useAppContext } from "./context/AppContext";
 
@@ -74,6 +75,7 @@ const App = () => {
           <Route path="add-shows" element={<AddShows />} />
           <Route path="list-shows" element={<ListShows />} />
           <Route path="list-bookings" element={<ListBooking />} />
+          <Route path="add-movie" element={<AddMovie />} />
         </Route>
       </Routes>
 

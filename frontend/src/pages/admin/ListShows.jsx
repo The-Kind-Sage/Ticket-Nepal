@@ -6,8 +6,7 @@ import { useAppContext } from '../../context/AppContext'
 
 const ListShows = () => {
 
-  const currency = import.meta.env.VITE_CURRENCY 
-
+  const currency = import.meta.env.VITE_CURRENCY
   const { axios, getToken, user } = useAppContext()
 
   const [shows, setShows] = useState([])
@@ -19,10 +18,14 @@ const ListShows = () => {
         headers: { Authorization: `Bearer ${await getToken()}` }
       })
 
-      setShows(data.shows)
+      console.log("API RESPONSE:", data)
+
+      setShows(Array.isArray(data.shows) ? data.shows : [])
       setLoading(false)
+
     } catch (error) {
       console.error(error)
+      setShows([])
       setLoading(false)
     }
   }
@@ -33,53 +36,74 @@ const ListShows = () => {
     }
   }, [user])
 
-  return !loading ? (
+  if (loading) return <Loading />
+
+  return (
     <>
       <Title text1="List" text2="Shows" />
 
       <div className='max-w-4xl mt-6 overflow-x-auto'>
         <table className='w-full border-collapse rounded-md overflow-hidden text-nowrap'>
+
+          {/* HEADER */}
           <thead>
             <tr className='bg-primary/20 text-left text-white'>
               <th className='p-2 font-medium pl-5'>Movie Name</th>
               <th className='p-2 font-medium'>Show Time</th>
-              <th className='p-2 font-medium'>Total Booklings</th>
+              <th className='p-2 font-medium'>Total Bookings</th>
               <th className='p-2 font-medium'>Earnings</th>
             </tr>
           </thead>
 
+          {/* BODY */}
           <tbody className='text-sm font-light'>
             {shows.map((show, index) => {
-              const seatsCount = Object.keys(show.occupiedSeats || {}).length
+
+              // ✅ CONDITION FOR SKY GREEN
+              const isMissingOrZero =
+                !show?.movieName ||
+                show?.movieName === "N/A" ||
+                show?.totalBookings === 0 ||
+                show?.totalEarnings === 0
 
               return (
                 <tr
                   key={index}
-                  className='border-b border-primary/10 bg-primary/5 even:bg-primary/10'
+
+                  className={
+                    isMissingOrZero
+                      ? "border-b border-primary/10 bg-primary/5 text-sky-900"
+                      : "border-b border-primary/10 bg-primary/5 even:bg-primary/10"
+                  }
                 >
-                  <td className='p-2 min-w-45 pl-5'>
-                    {show.Movie?.title || "N/A"}
+
+                  <td className='p-2 pl-5'>
+                    {show?.movieName || "N/A"}
                   </td>
 
                   <td className='p-2'>
-                    {dateFormat(show.showDateTime)}
+                    {show?.showTime
+                      ? dateFormat(show.showTime)
+                      : "N/A"}
                   </td>
 
                   <td className='p-2'>
-                    {seatsCount}
+                    {show?.totalBookings ?? 0}
                   </td>
 
-                  <td className='p-2'>
-                    {currency}{seatsCount * show.showPrice}
+                  <td className='p-2 font-semibold'>
+                    {currency}{show?.totalEarnings ?? 0}
                   </td>
+
                 </tr>
               )
             })}
           </tbody>
+
         </table>
       </div>
     </>
-  ) : <Loading />
+  )
 }
 
 export default ListShows

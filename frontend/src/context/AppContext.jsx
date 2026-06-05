@@ -1,10 +1,9 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import { useAuth, useUser } from "@clerk/clerk-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 
-// Set base URL from environment variable
 axios.defaults.baseURL = import.meta.env.VITE_BACKEND_URL;
 
 export const AppContext = createContext();
@@ -12,83 +11,95 @@ export const AppContext = createContext();
 export const AppProvider = ({ children }) => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminChecked, setAdminChecked] = useState(false);
- const [shows, setShows] = useState([]);
+  const [shows, setShows] = useState([]);
   const [favoritesMovies, setFavoritesMovies] = useState([]);
-  const image_base_url = import.meta.env.VITE_TMDB_BASE_URL;
+  
+  // NEW: State for admin dashboard data so it's globally accessible
+  const [dashboardData, setDashboardData] = useState(null);
+
+  const image_base_url = import.meta.env.VITE_BACKEND_URL;
 
   const { user, isLoaded } = useUser();
   const { getToken } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
-  // ------------------------------
-  // Fetch admin status
-  // ------------------------------
   const fetchIsAdmin = async () => {
     try {
       const token = await getToken();
       const res = await axios.get("/api/admin/is-admin", {
         headers: { Authorization: `Bearer ${token}` },
       });
-      console.log("ADMIN API RESPONSE:", res.data);
       setIsAdmin(res.data.isAdmin);
     } catch (error) {
       console.error("Admin check failed:", error);
       setIsAdmin(false);
     } finally {
-      setAdminChecked(true); // Mark admin check as done
+      setAdminChecked(true); 
     }
   };
 
-  // ------------------------------
-  // Fetch all shows
-  // ------------------------------
- const fetchShows = async () => {
-  try {
-    const res = await axios.get("/api/show/all-tmdb"); // new endpoint
-    if (res.data.success) {
-      setShows(res.data.shows);
-    } else {
-      toast.error(res.data.message || "Failed to fetch shows");
+  // NEW: Global function to fetch/refresh Dashboard data
+  // Using useCallback so it can be called inside other useEffects safely
+  const fetchDashboardData = useCallback(async () => {
+    if (!isAdmin) return;
+    try {
+      const token = await getToken();
+      const { data } = await axios.get('/api/admin/dashboard', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (data.success) setDashboardData(data.dashboardData);
+    } catch (error) {
+      console.error("Dashboard refresh failed:", error);
     }
-  } catch (error) {
-    console.error("Fetch shows error:", error);
-  }
-};
+  }, [isAdmin, getToken]);
 
-
-  // ------------------------------
-  // Fetch user's favorite movies
-  // ------------------------------
- const fetchFavoritesMovies = async () => {
-  try {
-    const token = await getToken();
-   const res = await axios.get('/api/users/favorite', {
-  headers: { Authorization: `Bearer ${token}` },
-});
-    if (res.data.success && Array.isArray(res.data.movies)) {
-      setFavoritesMovies(res.data.movies);
-    } else {
-      setFavoritesMovies([]); // always fallback
-      toast.error(res.data.message || "Failed to fetch favorite movies");
+  const fetchShows = async () => {
+    try {
+      const res = await axios.get("/api/show/all-tmdb");
+      if (res.data.success) {
+        setShows(res.data.shows);
+      }
+    } catch (error) {
+      console.error("Fetch shows error:", error);
     }
-  } catch (error) {
-    console.error("Fetch favorites error:", error);
-    setFavoritesMovies([]); // fallback
-  }
-};
+  };
 
+  const fetchFavoritesMovies = async () => {
+    try {
+      const token = await getToken();
+      const res = await axios.get('/api/users/favorite', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.data.success && Array.isArray(res.data.movies)) {
+        setFavoritesMovies(res.data.movies);
+      } else {
+        setFavoritesMovies([]);
+      }
+    } catch (error) {
+      console.error("Fetch favorites error:", error);
+      setFavoritesMovies([]);
+    }
+  };
 
-  // ------------------------------
-  // Load shows once on mount
-  // ------------------------------
+  // --- HELPER: RESOLVE POSTER URL ---
+  // Adding this to context means you don't have to rewrite image logic in 10 files
+  const resolveMovieImage = (movie) => {
+    if (!movie) return "https://via.placeholder.com/500x750?text=No+Data";
+    const path = movie.poster_path || movie.poster;
+    if (!path) return "https://via.placeholder.com/500x750?text=No+Image";
+
+    if (path.includes('uploads') || !path.startsWith('/')) {
+      const cleanPath = path.replace(/\\/g, '/').replace(/^\//, "");
+      return `${image_base_url}/${cleanPath}`;
+    }
+    return `https://image.tmdb.org/t/p/w500${path}`;
+  };
+
   useEffect(() => {
     fetchShows();
   }, []);
 
-  // ------------------------------
-  // Load user-related data once Clerk user is loaded
-  // ------------------------------
   useEffect(() => {
     if (isLoaded && user) {
       fetchIsAdmin();
@@ -96,29 +107,31 @@ export const AppProvider = ({ children }) => {
     }
   }, [isLoaded, user]);
 
-  // ------------------------------
-  // Protect admin routes
-  // ------------------------------
+  // Trigger dashboard fetch once admin status is confirmed
   useEffect(() => {
-    if (!adminChecked) return; // wait until admin check finishes
+    if (isAdmin) fetchDashboardData();
+  }, [isAdmin, fetchDashboardData]);
 
+  useEffect(() => {
+    if (!adminChecked) return;
     if (!isAdmin && location.pathname.startsWith("/admin")) {
-      toast.error("You are not authorized to access admin panel");
-      navigate("/"); // redirect non-admin users
+      toast.error("Unauthorized Access");
+      navigate("/");
     }
   }, [adminChecked, isAdmin, location.pathname, navigate]);
 
-  // ------------------------------
-  // Context value
-  // ------------------------------
   const value = {
     user,
     isAdmin,
     adminChecked,
     shows,
     favoritesMovies,
+    dashboardData,      // NEW
+    fetchDashboardData, // NEW
+    resolveMovieImage,  // NEW
     fetchIsAdmin,
     fetchFavoritesMovies,
+    fetchShows,         // Added so you can manual refresh
     getToken,
     navigate,
     axios,

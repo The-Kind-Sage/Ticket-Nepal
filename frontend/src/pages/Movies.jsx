@@ -1,116 +1,211 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import BlurCircle from "../components/BlurCircle";
-import { StarIcon } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import MovieCard from "../components/MovieCard";
+import { useAppContext } from "../context/AppContext";
 
 const Movies = () => {
-  const navigate = useNavigate();
-  const [movies, setMovies] = useState([]);
+  const { image_base_url, user, getToken } = useAppContext(); 
+  const [allMovies, setAllMovies] = useState([]); // Step 1: Data Collection
+  const [userRecommended, setUserRecommended] = useState([]); // User-based recommendations
+  const [genreRecommended, setGenreRecommended] = useState([]); // Genre-selection recommendations
+  const [preferredGenres, setPreferredGenres] = useState([]);
+  const [selectedGenre, setSelectedGenre] = useState("Action"); // Step 2: User Preference
   const [loading, setLoading] = useState(true);
-  const currency = import.meta.env.VITE_CURRENCY || "Rs";
+
+  // --- IMAGE HELPER (Handles Local + TMDB) ---
+  const getPosterUrl = (movie) => {
+    const path = movie.poster_path || movie.poster;
+    if (!path) return "/placeholder.jpg";
+
+    if (path.includes('uploads') || !path.startsWith('/')) {
+      const cleanPath = path.replace(/\\/g, '/').replace(/^\//, "");
+      const base = image_base_url?.replace(/\/$/, "");
+      return `${base}/${cleanPath}`;
+    }
+    return `https://image.tmdb.org/t/p/w500${path}`;
+  };
+
+  // --- THE ALGORITHM LOGIC ---
+  const normalizeGenreValue = (genre) => {
+    if (!genre) return null;
+    if (typeof genre === "string") return genre.trim();
+    if (typeof genre === "object") return (genre.name || genre.id || "").toString().trim();
+    return String(genre).trim();
+  };
+
+  const filterMoviesByGenres = (moviesList, genres) => {
+    if (!Array.isArray(moviesList)) return [];
+
+    const desired = new Set(
+      (genres || []).map((g) => normalizeGenreValue(g)).filter((g) => g)
+    );
+
+    return moviesList.filter((movie) => {
+      const movieGenres = Array.isArray(movie.genres)
+        ? movie.genres.map(normalizeGenreValue)
+        : [];
+      const moviePrimary = normalizeGenreValue(movie.genre);
+
+      return (
+        (moviePrimary && desired.has(moviePrimary)) ||
+        movieGenres.some((mg) => mg && desired.has(mg))
+      );
+    });
+  };
+
+  const applyGenreFilter = (moviesList, genreName) => {
+    const filtered = filterMoviesByGenres(moviesList, [genreName]);
+    setGenreRecommended(filtered);
+  };
+
+  const fetchUserPreferredGenres = async () => {
+    if (!user || !getToken) return [];
+    try {
+      const token = await getToken();
+      const { data } = await axios.get("http://localhost:3000/api/users/preferred-genres", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (data.success && Array.isArray(data.genres)) {
+        return data.genres;
+      }
+    } catch (error) {
+      console.warn("Could not load preferred genres:", error.message);
+    }
+    return [];
+  };
+
+  const updateUserRecommendations = (shows, userGenres) => {
+    const filtered = filterMoviesByGenres(shows, userGenres);
+    setUserRecommended(filtered);
+  };
 
   useEffect(() => {
-    const fetchMovies = async () => {
+    const initializeData = async () => {
       try {
+        setLoading(true);
         const { data } = await axios.get("http://localhost:3000/api/show/all");
 
         if (data.success) {
-          setMovies(data.shows);
-        } else {
-          console.error(data.message);
+          const shows = data.shows;
+          setAllMovies(shows);
+
+          const rawPreferredGenres = user ? await fetchUserPreferredGenres() : [];
+          setPreferredGenres(rawPreferredGenres);
+
+          if (rawPreferredGenres.length > 0) {
+            updateUserRecommendations(shows, rawPreferredGenres);
+          } else {
+            setUserRecommended([]);
+          }
+
+          // Genre-based recommendation section
+          applyGenreFilter(shows, selectedGenre);
         }
       } catch (error) {
-        console.error("Error fetching movies:", error.message);
+        console.error("Initialization Error:", error.message);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchMovies();
-  }, []);
+    initializeData();
+  }, [user, getToken, selectedGenre]);
+
+  const handleGenreChange = (genre) => {
+    setSelectedGenre(genre);
+    applyGenreFilter(allMovies, genre);
+  };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">Loading...</div>
-    );
-  }
-
-  if (movies.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        No shows available
+      <div className="flex items-center justify-center h-screen text-white text-xl">
+        Loading Movies...
       </div>
     );
   }
 
   return (
-    <div className="relative my-40 mb-60 px-6 md:px-16 lg:px-40 xl:px-44 overflow-hidden min-h-[80vh]">
+    <div className="relative my-40 mb-60 px-6 md:px-16 lg:px-40 xl:px-44 overflow-hidden min-h-[80vh] text-white">
       <BlurCircle top="150px" left="0px" />
       <BlurCircle bottom="50px" right="50px" />
 
-      <h1 className="text-lg font-medium my-4">Now Showing</h1>
-
-      <div className="flex flex-wrap max-sm:justify-center gap-8">
-        {movies.map((movie) => {
-          // Minimum show price
-          const minPrice =
-            movie.shows && movie.shows.length > 0
-              ? Math.min(...movie.shows.map((s) => s.showprice))
-              : null;
-
-          return (
-            <div
-              key={movie._id}
-              className="w-55 rounded-lg overflow-hidden bg-primary/10 border border-primary/20 hover:-translate-y-1 transition"
+      {/* STEP 2: USER PREFERENCE UI */}
+      <div className="flex flex-wrap items-center gap-4 mb-10">
+        <h2 className="text-xl font-bold">Select Genre:</h2>
+        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
+          {['Action', 'Comedy', 'Drama', 'Horror', 'Romance', 'Thriller', 'Sci-Fi'].map((genre) => (
+            <button
+              key={genre}
+              onClick={() => handleGenreChange(genre)}
+              className={`px-5 py-2 rounded-full border transition-all duration-300 ${
+                selectedGenre === genre 
+                ? 'bg-red-600 border-red-600 shadow-lg shadow-red-900/20' 
+                : 'border-white/20 text-white/60 hover:border-white/50'
+              }`}
             >
-              {/* Poster */}
-              <img
-                src={
-                  movie.poster_path
-                    ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
-                    : "/placeholder.jpg"
-                }
-                alt={movie.title}
-                className="h-60 w-full object-cover cursor-pointer"
-                onClick={() => {
-                  navigate(`/movies/${movie._id}`);
-                  window.scrollTo(0, 0);
-                }}
-              />
+              {genre}
+            </button>
+          ))}
+        </div>
+      </div>
 
-              {/* Title */}
-              <p className="font-medium p-2 truncate">{movie.title}</p>
+      {/* STEP 4: USER-BASED RECOMMENDATIONS */}
+      <div className="mb-12">
+        <h2 className="text-2xl font-semibold mb-4 border-b border-white/10 pb-3">
+          User Recommended Movies
+        </h2>
+        {user && preferredGenres.length > 0 ? (
+          <p className="text-sm text-gray-400 mb-4">Based on genres from your bookings: {preferredGenres.join(", ")}</p>
+        ) : (
+          <p className="text-sm text-gray-400 mb-4">No personal preference found yet; using selected genre as fallback.</p>
+        )}
 
-              {/* Price & Rating */}
-              <div className="flex items-center justify-between px-2 pb-2">
-                {/* Price */}
-                <p className="text-lg font-medium">
-                  {minPrice !== null ? `${currency} ${minPrice}` : "N/A"}
-                </p>
-
-                {/* Rating */}
-                <div className="flex items-center gap-1 text-sm font-medium text-primary">
-                  <StarIcon className="w-4 h-4 fill-primary" />
-                  {movie.vote_average?.toFixed(1) || "N/A"}
-                </div>
-              </div>
-
-              {/* Buy Tickets Button */}
-              <div className="flex justify-center pb-3">
-                <button
-                  onClick={() => {
-                    navigate(`/movies/${movie._id}`);
-                    window.scrollTo(0, 0);
-                  }}
-                  className="px-4 py-2 text-xs bg-primary hover:bg-primary-dull transition rounded-full font-medium cursor-pointer"
-                >
-                  Buy Tickets
-                </button>
-              </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {userRecommended.length > 0 ? (
+            userRecommended.map((movie) => (
+              <MovieCard key={movie._id} movie={{ ...movie, poster_url: getPosterUrl(movie) }} />
+            ))
+          ) : (
+            <div className="col-span-full py-10 text-center bg-white/5 rounded-2xl border border-dashed border-white/10">
+              <p className="text-gray-400 text-lg">No personalized recommendation available.</p>
             </div>
-          );
-        })}
+          )}
+        </div>
+      </div>
+
+      {/* STEP 4: GENRE-BASED RECOMMENDATIONS */}
+      <div className="mb-16">
+        <h1 className="text-2xl font-semibold mb-6 border-b border-white/10 pb-4">
+          Genre-based Recommended: <span className="text-red-500">{selectedGenre}</span>
+        </h1>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+          {genreRecommended.length > 0 ? (
+            genreRecommended.map((movie) => (
+              <MovieCard key={movie._id} movie={{ ...movie, poster_url: getPosterUrl(movie) }} />
+            ))
+          ) : (
+            <div className="col-span-full py-20 text-center bg-white/5 rounded-2xl border border-dashed border-white/10">
+              <p className="text-gray-400 text-lg">No movies found in the "{selectedGenre}" category.</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* FULL CATALOG (NOW SHOWING) */}
+      <div className="mt-20 opacity-80">
+        <h2 className="text-lg font-medium mb-6 text-gray-400 uppercase tracking-widest">
+          All Available Shows
+        </h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+          {allMovies.map((movie) => (
+            <MovieCard 
+              key={movie._id} 
+              movie={{...movie, poster_url: getPosterUrl(movie)}} 
+            />
+          ))}
+        </div>
       </div>
     </div>
   );

@@ -1,0 +1,125 @@
+/* Layout */
+.tn-header {
+  height: 64px;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid #eee;
+  background: #fff;
+  color: #111827; /* gray-900 */
+}
+
+/* Left (logo) */
+.tn-left {
+  display: flex;
+  letter-spacing: 25px;
+  align-items: center;
+  gap: 10px;
+  min-width: 140px;
+}
+
+.tn-logo {
+  margin-left: 100%;
+  width: 64px;
+  height: 200px;
+  object-fit: contain;
+}
+
+.tn-logo-text {
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  display: none; /* show only if image hidden */
+}
+
+/* Middle (search pill) */
+.tn-search {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #d1d5db;        /* gray-300 */
+  border-radius: 100px;             /* pill */
+  padding: 8px 12px 8px 12px;
+  max-width: 700px;
+  margin: 0 auto;
+  position: relative;
+  background: #fff;
+}
+
+.tn-search:focus-within {
+  border-color: #111827;
+  box-shadow: 0 0 0 3px rgba(17,24,39,0.08);
+}
+
+.tn-search-icon {
+  display: inline-flex;
+  color: #6b7280; /* gray-500 */
+}
+
+.tn-input {
+  border: none;
+  outline: none;
+  width: 100%;
+  font-size: 14px;
+  color: #111827;
+  background: transparent;
+}
+
+.tn-input::placeholder {
+  color: #6b7280;
+}
+
+/* Hidden text button but accessible for keyboard submit */
+.tn-search-submit {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: #111827;
+  color: #fff;
+  border-radius: 9999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  display: none; /* hide by default to match screenshot */
+}
+
+/* Right side (avatar + icons) */
+.tn-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-right: 10%;
+}
+
+.tn-icon-btn,
+.tn-avatar-btn {
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 10px;
+  padding: 6px;
+  color: #111827;
+}
+
+.tn-icon-btn:hover,
+.tn-avatar-btn:hover {
+  background: #f3f4f6; /* gray-100 */
+}
+
+.tn-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 9999px;
+  object-fit: cover;
+  display: block;
+}
+
+/* Responsiveness */
+@media (max-width: 768px) {
+  .tn-search { padding: 6px 10px; }
+  .tn-input { font-size: 13px; }
+  .tn-left { min-width: auto; }
+}

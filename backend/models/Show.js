@@ -6,6 +6,7 @@ const showSchema = new mongoose.Schema({
     showTime: { type: Date, required: true },
     showprice: { type: Number, required: true },
     occupaiedSeats: { type: Object, default: {} },
+    genres: { type: Array, default: [] }, // Store genres from the associated movie
 }, { minimize: false });
 
 const Show = mongoose.models.Show || mongoose.model("Show", showSchema);

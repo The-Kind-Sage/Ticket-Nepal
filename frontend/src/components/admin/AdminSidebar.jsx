@@ -16,6 +16,7 @@ const AdminSidebar = () => {
     { name: 'Add Shows', path: '/admin/add-shows', icon: PlusSquareIcon },
     { name: 'List Shows', path: '/admin/list-shows', icon: ListIcon },
     { name: 'List Bookings', path: '/admin/list-bookings', icon: ListCollapseIcon },
+    { name: 'Add Movie', path: '/admin/add-movie', icon: PlusSquareIcon },
   ]
 
   return (
