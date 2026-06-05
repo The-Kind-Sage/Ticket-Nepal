@@ -1,0 +1,10 @@
+{
+  "name": "ticket-nepal",
+  "version": "1.0.0",
+  "description": "Ticket Nepal - Movie Booking App",
+  "scripts": {
+    "dev": "cd frontend && npm run dev",
+    "server": "cd backend && npm run server",
+    "start": "cd backend && npm start"
+  }
+}
