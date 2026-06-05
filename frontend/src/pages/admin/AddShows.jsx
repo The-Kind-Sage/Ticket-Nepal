@@ -6,7 +6,7 @@ import { useAppContext } from '../../context/AppContext'
 import toast from 'react-hot-toast'
 
 const AddShows = () => {
-  const { axios, getToken, user, image_base_url } = useAppContext()
+  const { axios, getToken, user, image_base_url, fetchShows } = useAppContext()
   const Currency = import.meta.env.VITE_CURRENCY
 
   // States
@@ -96,6 +96,8 @@ const AddShows = () => {
 
       if (data.success) {
         toast.success('Shows and Trailer synced successfully!');
+        // Refresh global shows so home page reflects new data immediately
+        fetchShows();
         setSelectedMovie(null);
         setDateTimeSelection({});
         setShowPrice('');

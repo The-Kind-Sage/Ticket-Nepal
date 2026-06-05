@@ -3,32 +3,27 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import BlurCircle from "./BlurCircle";
 import MovieCard from "./MovieCard";
-import axios from "axios";
+import { useAppContext } from "../context/AppContext";
 
 const FeaturedSection = () => {
   const navigate = useNavigate();
+  const { axios, shows, fetchShows } = useAppContext();
   const [movies, setMovies] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchNowShowing = async () => {
-    try {
-      const { data } = await axios.get(
-        "http://localhost:3000/api/show/all"
-      );
-
-      if (data.success) {
-        setMovies(data.shows.slice(0, 4)); // 🔥 only first 4
-      }
-    } catch (error) {
-      console.error("Featured fetch error:", error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    // Re-fetch to get latest data whenever component mounts
+    fetchShows();
+  }, []);
 
   useEffect(() => {
-    fetchNowShowing();
-  }, []);
+    if (shows && shows.length > 0) {
+      setMovies(shows.slice(0, 4));
+      setLoading(false);
+    } else if (shows !== undefined) {
+      setLoading(false);
+    }
+  }, [shows]);
 
   return (
     <div className="px-6 md:px-16 lg:px-24 xl:px-44 overflow-hidden">

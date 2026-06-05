@@ -56,7 +56,7 @@ export const AppProvider = ({ children }) => {
 
   const fetchShows = async () => {
     try {
-      const res = await axios.get("/api/show/all-tmdb");
+      const res = await axios.get("/api/show/all");
       if (res.data.success) {
         setShows(res.data.shows);
       }

@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import axios from "axios";
 import { v4 as uuidv4 } from "uuid";
 import { 
   UploadCloud, 
@@ -11,10 +10,11 @@ import {
   Globe, 
   Type, 
   CheckCircle2,
-  Youtube, // Added Youtube icon
+  Youtube,
   X
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { useAppContext } from "../../context/AppContext";
 
 const PREDEFINED_GENRES = [
   "Action", "Adventure", "Animation", "Comedy", "Crime", 
@@ -24,6 +24,8 @@ const PREDEFINED_GENRES = [
 ];
 
 const AddMovie = () => {
+  const { axios, image_base_url, getToken } = useAppContext();
+  const backendUrl = image_base_url?.replace(/\/$/, "");
   const [title, setTitle] = useState("");
   const [overview, setOverview] = useState("");
   const [releaseDate, setReleaseDate] = useState("");
@@ -64,7 +66,7 @@ const AddMovie = () => {
 
   const fetchExistingMovies = async () => {
     try {
-      const { data } = await axios.get("http://localhost:3000/api/movies/all");
+      const { data } = await axios.get("/api/movies/all");
       if (data.success) setExistingMovies(data.movies);
     } catch (error) {
       console.error("Fetch existing movies error:", error);
@@ -91,15 +93,15 @@ const AddMovie = () => {
     setLanguage(movie.original_language || "en");
     setTrailer(movie.trailer || "");
     setRuntime({ hours: "", minutes: (movie.runtime || 0) / 60, seconds: "" });
-    setPosterPreview(movie.poster_path ? `http://localhost:3000/${movie.poster_path}` : "");
-    setBackdropPreview(movie.backdrop_path ? `http://localhost:3000/${movie.backdrop_path}` : "");
-    setCasts(movie.casts?.map(c => ({ name: c.name, picture: null, preview: c.image ? `http://localhost:3000/${c.image}` : "" })) || [{ name: "", picture: null, preview: null }]);
+    setPosterPreview(movie.poster_path ? `${backendUrl}/${movie.poster_path}` : "");
+    setBackdropPreview(movie.backdrop_path ? `${backendUrl}/${movie.backdrop_path}` : "");
+    setCasts(movie.casts?.map(c => ({ name: c.name, picture: null, preview: c.image ? `${backendUrl}/${c.image}` : "" })) || [{ name: "", picture: null, preview: null }]);
   };
 
   const removeMovie = async (movieId) => {
     if (!window.confirm("Are you sure you want to delete this movie?")) return;
     try {
-      const { data } = await axios.delete(`http://localhost:3000/api/movies/${movieId}`);
+      const { data } = await axios.delete(`/api/movies/${movieId}`);
       if (data.success) {
         toast.success("Movie removed");
         setExistingMovies(prev => prev.filter(m => m._id !== movieId));
@@ -148,14 +150,14 @@ const AddMovie = () => {
           original_language: language, trailer, runtime: Number(runtime.hours || 0) * 3600 + Number(runtime.minutes || 0) * 60,
           genres, casts
         };
-        const { data } = await axios.put(`http://localhost:3000/api/movies/${editingMovieId}`, body);
+        const { data } = await axios.put(`/api/movies/${editingMovieId}`, body);
         if (data.success) {
           toast.success("Movie updated successfully!");
           setExistingMovies(prev => prev.map(m => m._id === editingMovieId ? data.movie : m));
           resetForm();
         }
       } else {
-        const res = await axios.post("http://localhost:3000/api/movies/add", formData);
+        const res = await axios.post("/api/movies/add", formData);
         toast.success("Movie Uploaded Successfully!");
         setExistingMovies(prev => [res.data.movie, ...prev]);
         resetForm();
@@ -183,7 +185,7 @@ const AddMovie = () => {
             {existingMovies.length > 0 ? existingMovies.map(movie => (
               <div key={movie._id} className="bg-black/40 border border-white/10 rounded-xl overflow-hidden">
                 <div className="h-40 overflow-hidden">
-                  <img src={`http://localhost:3000/${movie.poster_path || movie.backdrop_path}`} alt={movie.title} className="w-full h-full object-cover" />
+                  <img src={`${backendUrl}/${movie.poster_path || movie.backdrop_path}`} alt={movie.title} className="w-full h-full object-cover" />
                 </div>
                 <div className="p-3 space-y-2">
                   <h3 className="text-sm font-semibold truncate">{movie.title}</h3>

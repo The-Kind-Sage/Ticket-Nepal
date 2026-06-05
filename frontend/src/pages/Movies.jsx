@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
 import BlurCircle from "../components/BlurCircle";
 import MovieCard from "../components/MovieCard";
 import { useAppContext } from "../context/AppContext";
 
 const Movies = () => {
-  const { image_base_url, user, getToken } = useAppContext(); 
+  const { image_base_url, user, getToken, axios } = useAppContext(); 
   const [allMovies, setAllMovies] = useState([]); // Step 1: Data Collection
   const [userRecommended, setUserRecommended] = useState([]); // User-based recommendations
   const [genreRecommended, setGenreRecommended] = useState([]); // Genre-selection recommendations
@@ -63,7 +62,7 @@ const Movies = () => {
     if (!user || !getToken) return [];
     try {
       const token = await getToken();
-      const { data } = await axios.get("http://localhost:3000/api/users/preferred-genres", {
+      const { data } = await axios.get("/api/users/preferred-genres", {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (data.success && Array.isArray(data.genres)) {
@@ -84,7 +83,7 @@ const Movies = () => {
     const initializeData = async () => {
       try {
         setLoading(true);
-        const { data } = await axios.get("http://localhost:3000/api/show/all");
+        const { data } = await axios.get("/api/show/all");
 
         if (data.success) {
           const shows = data.shows;
